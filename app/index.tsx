@@ -6,9 +6,10 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import * as Location from 'expo-location';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
   Platform,
@@ -65,6 +66,7 @@ export default function App() {
   // Recipient phone state
   const [phoneNumber, setPhoneNumber] = useState('');
   const [tempPhoneNumber, setTempPhoneNumber] = useState('');
+  const phoneInputRef = useRef<TextInput>(null);
 
   // Flashlight state
   const [isTorchOn, setIsTorchOn] = useState(false);
@@ -74,6 +76,7 @@ export default function App() {
   const scale = useSharedValue(50); 
   const contentOpacity = useSharedValue(0);
   const buttonContentOpacity = useSharedValue(0);
+  const footerOpacity = useSharedValue(0);
 
   useEffect(() => {
     checkName();
@@ -96,8 +99,9 @@ export default function App() {
 
       contentOpacity.value = withDelay(1000, withTiming(1, { duration: 800 }));
       buttonContentOpacity.value = withDelay(1200, withTiming(1, { duration: 500 }));
+      footerOpacity.value = withDelay(1500, withTiming(1, { duration: 800 }));
     }
-  }, [checkingName, hasName, scale, contentOpacity, buttonContentOpacity]);
+  }, [checkingName, hasName, scale, contentOpacity, buttonContentOpacity, footerOpacity]);
 
   const animatedButtonStyle = useAnimatedStyle(() => {
     return {
@@ -111,6 +115,11 @@ export default function App() {
 
   const animatedButtonContentStyle = useAnimatedStyle(() => ({
     opacity: buttonContentOpacity.value
+  }));
+
+  const animatedFooterStyle = useAnimatedStyle(() => ({
+    opacity: footerOpacity.value,
+    transform: [{ translateY: interpolate(footerOpacity.value, [0, 1], [20, 0]) }]
   }));
 
   const checkName = async () => {
@@ -220,7 +229,12 @@ export default function App() {
       let whatsappUrl = `whatsapp://send?text=${encodeURIComponent(message)}`;
       
       if (phoneNumber) {
-        whatsappUrl += `&phone=${phoneNumber.replace(/\D/g, '')}`;
+        let cleanPhone = phoneNumber.replace(/\D/g, '');
+        // Se o número tiver 10 ou 11 dígitos (sem DDI), adiciona o 55 do Brasil
+        if (cleanPhone.length >= 10 && cleanPhone.length <= 11) {
+            cleanPhone = '55' + cleanPhone;
+        }
+        whatsappUrl += `&phone=${cleanPhone}`;
       }
 
       setStatusMsg('Abrindo WhatsApp...');
@@ -259,12 +273,52 @@ export default function App() {
     }
   };
 
+  const handlePhoneChange = (text: string) => {
+    let numbers = text.replace(/\D/g, '');
+    if (numbers.length > 11) numbers = numbers.substring(0, 11);
+
+    let formatted = numbers;
+    if (numbers.length > 2) {
+      formatted = `(${numbers.substring(0, 2)}) ${numbers.substring(2)}`;
+    }
+    if (numbers.length > 7) {
+      formatted = `(${numbers.substring(0, 2)}) ${numbers.substring(2, 7)}-${numbers.substring(7)}`;
+    }
+    setTempPhoneNumber(formatted);
+
+    if (numbers.length === 11) {
+      Keyboard.dismiss();
+    }
+  };
+
   const editSettings = () => {
     setTempName(name);
     setTempPhoneNumber(phoneNumber);
     setHasName(false);
   };
 
+  const openGithub = () => {
+    Linking.openURL('https://github.com/devkoalaa');
+  };
+
+  const Footer = ({ animated = false }: { animated?: boolean }) => {
+    // If animated, we need to wrap the TouchableOpacity inside Animated.View to animate opacity/transform
+    if (animated) {
+      return (
+        <Animated.View style={[styles.footer, animatedFooterStyle]}>
+          <TouchableOpacity onPress={openGithub}>
+             <Text style={styles.footerText}>developed by @devkoalaa</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    }
+
+    return (
+      <TouchableOpacity onPress={openGithub} style={styles.footer}>
+        <Text style={styles.footerText}>developed by @devkoalaa</Text>
+      </TouchableOpacity>
+    );
+  };
 
   if (checkingName) {
     return (
@@ -292,16 +346,21 @@ export default function App() {
             value={tempName}
             onChangeText={setTempName}
             placeholderTextColor="#999"
+            returnKeyType="next"
+            onSubmitEditing={() => phoneInputRef.current?.focus()}
+            blurOnSubmit={false}
           />
 
           <Text style={[styles.subtitle, { marginBottom: 10, marginTop: 10 }]}>Número do destinatário (opcional)</Text>
           <TextInput
+            ref={phoneInputRef}
             style={styles.input}
-            placeholder="Ex: 5511999999999"
+            placeholder="Ex: (11) 99999-9999"
             value={tempPhoneNumber}
-            onChangeText={setTempPhoneNumber}
+            onChangeText={handlePhoneChange}
             placeholderTextColor="#999"
             keyboardType="phone-pad"
+            maxLength={15}
           />
 
           <TouchableOpacity style={styles.saveButton} onPress={saveName}>
@@ -309,6 +368,7 @@ export default function App() {
             <Ionicons name="arrow-forward" size={24} color="#fff" style={{ marginLeft: 10 }} />
           </TouchableOpacity>
         </View>
+        <Footer />
       </KeyboardAvoidingView>
     );
   }
@@ -318,11 +378,13 @@ export default function App() {
       <StatusBar style="dark" />
 
       <Animated.View style={[styles.header, animatedContentStyle]}>
-        <TouchableOpacity onPress={editSettings} style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Ionicons name="person-circle" size={32} color="#666" />
-          <Text style={styles.headerText}>Olá, {name}</Text>
-          <Ionicons name="settings-outline" size={16} color="#999" style={{ marginLeft: 8 }} />
-        </TouchableOpacity>
+        <View style={{ alignItems: 'flex-end', width: '100%' }}>
+            <TouchableOpacity onPress={editSettings} style={styles.headerContent}>
+            <Ionicons name="person-circle" size={32} color="#666" />
+            <Text style={styles.headerText} numberOfLines={1} ellipsizeMode="tail">Olá, {name}</Text>
+            <Ionicons name="settings-outline" size={16} color="#999" style={{ marginLeft: 8 }} />
+            </TouchableOpacity>
+        </View>
       </Animated.View>
 
       <View style={styles.content}>
@@ -374,6 +436,7 @@ export default function App() {
 
         <Animated.Text style={[styles.statusText, animatedContentStyle]}>{statusMsg}</Animated.Text>
       </View>
+      <Footer animated />
     </View>
   );
 }
@@ -443,6 +506,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60,
     right: 20,
+    left: 20, // Garante que não ultrapasse a largura
+    flexDirection: 'row',
+    justifyContent: 'flex-end', // Mantém alinhado à direita mas permite flexibilidade
+    alignItems: 'center',
+    // backgroundColor: '#fff', // Removido fundo branco para não tapar textos se ficar grande
+    // paddingVertical: 8,      // Removido padding
+    // paddingHorizontal: 16,   // Removido padding
+    // borderRadius: 20,        // Removido border
+    // elevation: 2,            // Removido sombra
+    // shadowColor: '#000',     // Removido sombra
+    // shadowOpacity: 0.05,     // Removido sombra
+    // shadowRadius: 5,         // Removido sombra
+    zIndex: 10, // Garante que fique acima se necessário, mas sem fundo
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#fff',
@@ -453,12 +531,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.05,
     shadowRadius: 5,
+    maxWidth: '100%', // Limita a largura do conteúdo
   },
   headerText: {
     fontSize: 16,
     color: '#333',
     fontWeight: '600',
     marginLeft: 8,
+    flexShrink: 1, // Permite que o texto encolha se necessário
   },
   content: {
     alignItems: 'center',
@@ -575,5 +655,19 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 5,
     shadowOffset: { width: 0, height: 2 },
+  },
+  footer: {
+    position: 'absolute',
+    bottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    padding: 10,
+  },
+  footerText: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+    letterSpacing: 0.5,
   }
 });
