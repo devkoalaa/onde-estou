@@ -82,7 +82,7 @@
     <div class="logo-container">
         <!-- Logo com fundo branco -->
         <div class="pin-logo with-background" id="pin-container">
-            <svg id="pin-svg" width="300" height="320" viewBox="0 0 300 320" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
+            <svg id="pin-svg" width="200" height="200" viewBox="-100 -100 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" style="display: block;">
                 <!-- Sombra do pin -->
 
                 <!-- Pin de mapa -->
@@ -124,29 +124,47 @@
         
         <!-- Botões de exportação -->
         <div class="export-buttons">
-            <button class="export-btn" onclick="exportImage(true)">Exportar com Fundo (1024x1024)</button>
-            <button class="export-btn" onclick="exportImage(false)">Exportar Transparente (1024x1024)</button>
+            <button class="export-btn" onclick="exportImage(true)">Exportar com Fundo</button>
+            <button class="export-btn" onclick="exportImage(false)">Exportar Transparente</button>
             <button class="export-btn" onclick="exportBackgroundOnly()">Exportar Apenas Fundo (512x512)</button>
-            <button class="export-btn" onclick="exportIconOnly()">Exportar Pin Completo (512x512)</button>
-            <button class="export-btn" onclick="exportMonochrome()">Exportar Monocromático (432x432)</button>
+            <button class="export-btn" onclick="exportIconOnly()">Exportar Pin Completo</button>
+            <button class="export-btn" onclick="exportMonochrome()">Exportar Monocromático</button>
         </div>
     </div>
 
     <script>
+        // Função auxiliar para obter o tamanho visual atual do SVG
+        function getCurrentSVGSize() {
+            const svg = document.getElementById('pin-svg');
+            // Pega o width e height do SVG que está sendo exibido
+            const svgWidth = parseFloat(svg.getAttribute('width')) || 188;
+            const svgHeight = parseFloat(svg.getAttribute('height')) || 200;
+            return { width: svgWidth, height: svgHeight };
+        }
+
         function exportImage(withBackground) {
             const svg = document.getElementById('pin-svg');
             const container = document.getElementById('pin-container');
             
+            // Obter tamanho visual atual do SVG
+            const currentSize = getCurrentSVGSize();
+            
+            // Usar o tamanho visual atual multiplicado por um fator de qualidade (2x para manter qualidade)
+            // Isso mantém a qualidade mesmo sendo menor
+            const scaleFactor = 2;
+            const exportWidth = Math.round(currentSize.width * scaleFactor);
+            const exportHeight = Math.round(currentSize.height * scaleFactor);
+            
             // Clonar o SVG para não modificar o original
             const clonedSvg = svg.cloneNode(true);
             
-            // Criar um canvas
+            // Criar um canvas com o tamanho baseado no visual
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             
-            // Definir tamanho do canvas - 1024x1024 para ambas exportações
-            canvas.width = 1024;
-            canvas.height = 1024;
+            // Tamanho do canvas baseado no tamanho visual
+            canvas.width = exportWidth;
+            canvas.height = exportHeight;
             
             // Se quiser com fundo, adicionar fundo verde
             if (withBackground) {
@@ -162,20 +180,13 @@
             // Criar imagem a partir do SVG
             const img = new Image();
             img.onload = function() {
-                // Calcular escala para caber no 1024x1024 mantendo proporção
-                // SVG é 300x320, então escala pela altura (320 -> 1024)
-                const scale = 1024 / 320;
-                const scaledWidth = 300 * scale;
-                const scaledHeight = 320 * scale;
-                // Centralizar horizontalmente
-                const x = (1024 - scaledWidth) / 2;
-                const y = 0;
-                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                // Desenhar o SVG no tamanho completo do canvas
+                ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
                 
                 // Converter canvas para PNG e fazer download
                 canvas.toBlob(function(blob) {
                     const link = document.createElement('a');
-                    link.download = withBackground ? 'pin-logo-com-fundo.png' : 'pin-logo-transparente.png';
+                    link.download = withBackground ? `pin-logo-com-fundo-${exportWidth}x${exportHeight}.png` : `pin-logo-transparente-${exportWidth}x${exportHeight}.png`;
                     link.href = URL.createObjectURL(blob);
                     link.click();
                     
@@ -210,17 +221,25 @@
         }
 
         function exportIconOnly() {
-            // Exportar pin completo em 512x512 com fundo transparente
+            // Exportar pin completo com tamanho baseado no visual atual
             const svg = document.getElementById('pin-svg');
+            
+            // Obter tamanho visual atual do SVG
+            const currentSize = getCurrentSVGSize();
+            
+            // Usar o tamanho visual atual multiplicado por um fator de qualidade (2x para manter qualidade)
+            const scaleFactor = 2;
+            const exportWidth = Math.round(currentSize.width * scaleFactor);
+            const exportHeight = Math.round(currentSize.height * scaleFactor);
             
             // Clonar o SVG para não modificar o original
             const clonedSvg = svg.cloneNode(true);
             
-            // Criar canvas 512x512
+            // Criar canvas com tamanho baseado no visual
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = 512;
-            canvas.height = 512;
+            canvas.width = exportWidth;
+            canvas.height = exportHeight;
             
             // Converter SVG para data URL
             const svgData = new XMLSerializer().serializeToString(clonedSvg);
@@ -230,20 +249,13 @@
             // Criar imagem a partir do SVG
             const img = new Image();
             img.onload = function() {
-                // Calcular escala para caber no 512x512 mantendo proporção
-                // SVG é 300x320, então escala pela altura (320 -> 512)
-                const scale = 512 / 320;
-                const scaledWidth = 300 * scale;
-                const scaledHeight = 320 * scale;
-                // Centralizar horizontalmente
-                const x = (512 - scaledWidth) / 2;
-                const y = 0;
-                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                // Desenhar o SVG no tamanho completo do canvas
+                ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
                 
                 // Converter para PNG e fazer download
                 canvas.toBlob(function(blob) {
                     const link = document.createElement('a');
-                    link.download = 'pin-logo-transparente-512x512.png';
+                    link.download = `pin-logo-transparente-${exportWidth}x${exportHeight}.png`;
                     link.href = URL.createObjectURL(blob);
                     link.click();
                     
@@ -257,8 +269,16 @@
         }
 
         function exportMonochrome() {
-            // Exportar pin monocromático em 432x432 com fundo transparente
+            // Exportar pin monocromático com tamanho baseado no visual atual
             const svg = document.getElementById('pin-svg');
+            
+            // Obter tamanho visual atual do SVG
+            const currentSize = getCurrentSVGSize();
+            
+            // Usar o tamanho visual atual multiplicado por um fator de qualidade (2x para manter qualidade)
+            const scaleFactor = 2;
+            const exportWidth = Math.round(currentSize.width * scaleFactor);
+            const exportHeight = Math.round(currentSize.height * scaleFactor);
             
             // Clonar o SVG e adicionar filtro monocromático
             const clonedSvg = svg.cloneNode(true);
@@ -291,11 +311,11 @@
                 mainGroup.setAttribute('filter', 'url(#shadow) url(#monochrome)');
             }
             
-            // Criar canvas 432x432
+            // Criar canvas com tamanho baseado no visual
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
-            canvas.width = 432;
-            canvas.height = 432;
+            canvas.width = exportWidth;
+            canvas.height = exportHeight;
             
             // Converter SVG para data URL
             const svgData = new XMLSerializer().serializeToString(clonedSvg);
@@ -305,15 +325,8 @@
             // Criar imagem a partir do SVG
             const img = new Image();
             img.onload = function() {
-                // Calcular escala para caber no 432x432 mantendo proporção
-                // SVG é 300x320, então escala pela altura (320 -> 432)
-                const scale = 432 / 320;
-                const scaledWidth = 300 * scale;
-                const scaledHeight = 320 * scale;
-                // Centralizar horizontalmente
-                const x = (432 - scaledWidth) / 2;
-                const y = 0;
-                ctx.drawImage(img, x, y, scaledWidth, scaledHeight);
+                // Desenhar o SVG no tamanho completo do canvas
+                ctx.drawImage(img, 0, 0, exportWidth, exportHeight);
                 
                 // Converter para escala de cinza usando canvas
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -333,7 +346,7 @@
                 // Converter para PNG e fazer download
                 canvas.toBlob(function(blob) {
                     const link = document.createElement('a');
-                    link.download = 'pin-logo-monocromatico-432x432.png';
+                    link.download = `pin-logo-monocromatico-${exportWidth}x${exportHeight}.png`;
                     link.href = URL.createObjectURL(blob);
                     link.click();
                     
